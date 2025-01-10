@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kista Metro Departures</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/js/all.min.js" crossorigin="anonymous"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Doto&display=swap" rel="stylesheet">
+    <style>
+        html,body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0px;
+            padding: 0px;
+            background: #000;
+            width: 100%;
+            height: 100%; /* define the height for body and html */
+        }
+        h1 {
+            text-align: center;
+            font-size: 30px;
+            font-weight: 700;
+            color: #2B89ED
+
+
+        }
+        #train {
+            color:#373737;
+            padding-right: 5px;
+        }
+        p{
+            text-align: center;
+            margin-top: -25px;
+            font-size: 14px;
+        }
+        .departure-container {
+            max-width: 100%;
+         
+            margin: auto;
+            background: #000;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+           
+        }
+        .departure-header, .departure {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #232323;
+            font-weight: bold;
+            font-weight: 200;
+            
+        }
+        .departure-header {
+           
+            font-size: 28px;
+            color: #eee;
+            border-bottom: 6px solid #00843D;
+        }
+        .departure-header div:first-child {
+            text-align: left;
+        }
+        .departure-header div:not(:first-child) {
+            text-align: center;
+        }
+        .departure-header div:last-child {
+            text-align: left;
+
+        }
+        .departure:last-child {
+            border-bottom: none;
+            
+        }
+   
+        .direction {
+          
+            font-weight: 400;
+            color: gold;
+            text-align: left;
+            font-family: 'Doto', sans-serif;
+            font-size: 2.3em;
+            font-weight: 500;
+        }
+        .time {
+            font-size: 2.3em;
+            font-weight: normal;
+            color: gold;
+            text-align: center;
+            font-family: 'Doto', sans-serif;
+            font-weight: 500;
+        }
+        .minutes-left {
+            font-size: 2.3em;
+            font-weight: 500;
+            color: gold;
+            text-align: center;
+            position: relative;
+            display: inline-block;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            font-family: 'Doto', sans-serif;
+        }
+        .slide-up {
+            transform: translateY(-10px);
+            opacity: 0;
+        }
+        .walk-indicator {
+            font-size: 2.1em;
+            text-align: right;
+            margin-right: 15px;
+        }
+        .walk-indicator i {
+            color: inherit;
+        }
+        .green {
+            color: #00843D;
+        }
+        .orange {
+            color: orange;
+        }
+        .red {
+            color: #DA291C;
+        }
+        .timestamp {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 300;
+            color: #555;
+            margin-top: 10px;
+        }
+ 
+    </style>
+</head>
+<body>
+    
+   
+    <div class="departure-container">
+        <div class="departure-header">
+            <div>Rikting</div>
+            <div>Avgångstid</div>
+            <div>Avgår om</div>
+            <div></div>
+        </div>
+        <div id="departures"></div>
+    </div>
+    <div class="timestamp" id="timestamp"></div>
+
+    <script>
+        async function fetchDepartures() {
+            const apiUrl = "https://api.resrobot.se/v2.1/departureBoard?id=740021663&format=json&accessId=dbea1f69-3e13-44cb-b8b3-44b56afa495c";
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                const now = new Date();
+                const filteredDepartures = data.Departure.filter(dep => {
+                    const [depHour, depMin] = dep.time.split(":").map(Number);
+                    const departureDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), depHour, depMin);
+                    const diffMinutes = Math.round((departureDate - now) / 60000);
+                    return (dep.ProductAtStop.displayNumber === "17" || dep.ProductAtStop.displayNumber === "18" || dep.ProductAtStop.displayNumber === "19") && diffMinutes <= 30 && diffMinutes > 6;
+                });
+                displayDepartures(filteredDepartures);
+                updateTimestamp();
+            } catch (error) {
+                console.error("Error fetching departures:", error);
+            }
+        }
+
+        function cleanDirection(direction) {
+            return direction.replace(" T-bana (Stockholm kn)", "");
+        }
+
+        function formatTime(time) {
+            return time.substring(0, 5); // Extract HH:MM from HH:MM:SS
+        }
+
+        function displayDepartures(departures) {
+            const container = document.getElementById("departures");
+            container.innerHTML = ""; // Clear previous results
+            departures.sort((a, b) => a.time.localeCompare(b.time)); // Sort by time
+            departures.forEach(dep => {
+
+                let arrowIcon = "";
+        if (dep.directionFlag == 2) {
+            // Exempel med Font Awesome-pil upp:
+            arrowIcon = `<i class="fa-solid fa-arrow-up pil"></i>`;
+            // Alternativt en enkel Unicode-pil: arrowIcon = "▲";
+        } else {
+            // Exempel med Font Awesome-pil ner:
+            arrowIcon = `<i class="fa-solid fa-arrow-down pil"></i>`;
+            // Alternativt en enkel Unicode-pil: arrowIcon = "▼";
+        }
+
+                const formattedTime = formatTime(dep.time);
+                const minutesLeft = Math.round((new Date(dep.date + ' ' + dep.time) - new Date()) / 60000);
+                const indicatorColor = minutesLeft >= 8 ? "green" : minutesLeft >= 6 ? "orange" : "red";
+                const indicatorIcon = minutesLeft >= 9 ? "fa-person-walking" : minutesLeft >= 7 ? "fa-person-running" : "fa-person-walking";
+                const indicatorText = minutesLeft >= 9 ? "Within walking time" : minutesLeft >= 7 ? "You can make it if you hurry" : "Not enough time to walk";
+                
+                const departureElement = document.createElement("div");
+                departureElement.classList.add("departure");
+                departureElement.innerHTML = `
+                
+                    <div class="direction"> ${arrowIcon} ${cleanDirection(dep.direction)}</div>
+                    <div class="time">${formattedTime}</div>
+                    <div class="minutes-left slide-up">${minutesLeft} min</div>
+                    <div class="walk-indicator ${indicatorColor}" title="${indicatorText}"><i class="fa-solid ${indicatorIcon}"></i></div>
+                `;
+                container.appendChild(departureElement);
+                setTimeout(() => {
+                    departureElement.querySelector(".minutes-left").classList.remove("slide-up");
+                }, 100);
+            });
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            const formattedTimestamp = `Last updated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            document.getElementById("timestamp").textContent = formattedTimestamp;
+        }
+
+        fetchDepartures();
+        setInterval(fetchDepartures, 60000); // Refresh every 60 seconds
+    </script>
+</body>
+</html>
